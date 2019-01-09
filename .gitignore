@@ -1,0 +1,11 @@
+/.idea
+/.vscode
+/vendor
+.DS_Store
+.AppleSingle
+.AppleDouble
+*.sublime-project
+*.sublime-workspace
+Thumbs.db
+password-generator
+password-generator.exe
