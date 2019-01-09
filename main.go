@@ -11,33 +11,24 @@ import (
 	"github.com/sethvargo/go-password/password"
 )
 
+var logger *log.Logger
+
 var verboseLogging = false
 
 func main() {
+	logger = log.New(os.Stderr, "", 0)
+
 	var args []string
 	if len(os.Args) > 1 {
 		args = os.Args[1:]
 	}
 
-	for _, arg := range args {
-		if arg == "-v" {
-			verboseLogging = true
-			break
-		}
-	}
+	setVerboseLogging(args)
 
 	length := getLength(args)
 	logf("Password will be %d characters", length)
 
-	allowRepeatCharacters := false
-	if length > 26 {
-		allowRepeatCharacters = true
-		logf("Password will include repeated characters")
-	} else {
-		logf("Password will not include repeated characters")
-	}
-
-	split := getSplit(length, allowRepeatCharacters, args)
+	split, allowRepeatCharacters := getSplit(length, args)
 	logf("Password will have %d digits and %d symbols", split[0], split[1])
 
 	pw, err := password.Generate(length, split[0], split[1], false, allowRepeatCharacters)
@@ -55,12 +46,24 @@ func main() {
 
 func logf(msg string, data ...interface{}) {
 	if verboseLogging {
-		log.Printf(msg, data...)
+		logger.Printf(msg, data...)
+	}
+}
+
+func setVerboseLogging(args []string) {
+	verboseLogging = false
+
+	for _, arg := range args {
+		if arg == "-v" {
+			verboseLogging = true
+			break
+		}
 	}
 }
 
 func getLength(args []string) int {
 	minLength := 8
+	maxLength := 4096
 
 	length := 32
 
@@ -70,9 +73,12 @@ func getLength(args []string) int {
 			if len(parts) == 2 {
 				requestedLength, err := strconv.Atoi(parts[1])
 				if err == nil {
-					if requestedLength >= minLength {
+					if requestedLength >= minLength && requestedLength <= maxLength {
 						length = requestedLength
-					} else {
+					} else if requestedLength > maxLength {
+						length = maxLength
+						logf("Specified password length too long; overriding to %d characters", maxLength)
+					} else if requestedLength < minLength {
 						length = minLength
 						logf("Specified password length too short; overriding to %d characters", minLength)
 					}
@@ -86,7 +92,15 @@ func getLength(args []string) int {
 	return length
 }
 
-func getSplit(length int, allowRepeatCharacters bool, args []string) [2]int {
+func getSplit(length int, args []string) ([2]int, bool) {
+	allowRepeatCharacters := false
+	if length > 26 {
+		allowRepeatCharacters = true
+		logf("Password will include repeated characters")
+	} else {
+		logf("Password will not include repeated characters")
+	}
+
 	includeSymbols := true
 	for _, arg := range args {
 		if arg == "--no-symbols" {
@@ -112,5 +126,5 @@ func getSplit(length int, allowRepeatCharacters bool, args []string) [2]int {
 		numberOfSymbols = 0
 	}
 
-	return [2]int{numberofDigits, numberOfSymbols}
+	return [2]int{numberofDigits, numberOfSymbols}, allowRepeatCharacters
 }
